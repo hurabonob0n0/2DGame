@@ -1,0 +1,2 @@
+https://github.com/rafaelvasco/SpriteVortex.git
+https://github.com/ForkandBeard/Alferd-Spritesheet-Unpacker.git
