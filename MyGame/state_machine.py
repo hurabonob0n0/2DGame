@@ -20,7 +20,7 @@ class StateMachine:
                 return
 
         # 처리되지 않은 event 를 알려준다.
-        print(f'처리되지 않은 이벤트 {event_to_string(event)} 가 있습니다.')
+        #print(f'처리되지 않은 이벤트 {event_to_string(event)} 가 있습니다.')
 
     def draw(self, camera): # 💖 [수정] camera 매개변수 추가
         self.cur_state.draw(camera) # 💖 [수정] camera 전달

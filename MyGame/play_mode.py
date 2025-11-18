@@ -11,6 +11,7 @@ from player import Player
 # from ball import Ball # (현재 사용 안 함)
 from zombie import Zombie # 💖 [수정] 주석 해제
 from camera import Camera
+import enemy1
 
 player = None
 zombie = None # 💖 [수정] 주석 해제
@@ -39,9 +40,24 @@ def init():
     player = Player()
     game_world.add_object(player, 1)
 
-    # 💖 [수정] 좀비 생성 코드 주석 해제
-    zombie = Zombie()
-    game_world.add_object(zombie, 1)
+    # 💖💖💖 [아래 블록 수정] 💖💖💖
+
+    # 💖 1. Enemy1 10마리 생성 및 추가
+    # (충돌 그룹에 player.sword는 한 번만 등록)
+    game_world.add_collision_pair('sword:enemy', player.sword, None)
+
+    # 💖 [삭제] 2. [추가] 검기(Bullet) vs Enemy 충돌 그룹 등록
+    # 💖 [삭제] game_world.add_collision_pair('player_bullet:enemy', None, None)
+
+    for i in range(10):
+        # 💖 2-1. Enemy1 생성
+        enemy = enemy1.Enemy1()
+
+        # 💖 2-2. 게임 월드에 추가
+        game_world.add_object(enemy, 1)
+
+        # 💖 2-3. [수정] Enemy를 두 충돌 그룹 모두에 추가
+        game_world.add_collision_pair('sword:enemy', None, enemy)
 
     camera = Camera()
 

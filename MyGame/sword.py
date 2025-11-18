@@ -1,21 +1,21 @@
 import math
 from pico2d import load_image, draw_rectangle, SDL_MOUSEBUTTONDOWN, SDL_BUTTON_LEFT
 import game_framework
+import game_world  # 💖 [추가] game_world 임포트
 
 # 💖 [추가] 상태 머신 임포트
 from state_machine import StateMachine
-from event_to_string import event_to_string  # (디버깅용)
 
-
-# 💖 [추가] 칼의 상태 머신을 위한 이벤트
 def attack_down(e):
-    # e[0] == 'INPUT', e[1] == event
-    return e[0] == 'INPUT' and e[1].type == SDL_MOUSEBUTTONDOWN and e[1].button == SDL_BUTTON_LEFT
-
+    """ 마우스 왼쪽 버튼이 눌렸는지 확인하는 이벤트 핸들러 """
+    if e[0] != 'INPUT': return False
+    if e[1].type != SDL_MOUSEBUTTONDOWN: return False
+    if e[1].button != SDL_BUTTON_LEFT: return False
+    return True
 
 def timeout(e):
+    """ 'TIMEOUT' 이벤트인지 확인하는 핸들러 """
     return e[0] == 'TIMEOUT'
-
 
 # 💖 [추가] 칼의 'Idle' 상태 (마우스 따라다니기)
 class Idle:
@@ -44,7 +44,6 @@ class Idle:
 
 
 # 💖 [추가] 칼의 'Swing' 상태 (휘두르기)
-# 💖 [추가] 칼의 'Swing' 상태 (휘두르기)
 class Swing:
     def __init__(self, sword):
         self.sword = sword
@@ -72,6 +71,10 @@ class Swing:
             # 💖 마우스가 왼쪽에 있으면: -60도 -> +60도
             self.swing_start_angle = start_angle - math.radians(60)
             self.swing_mid_angle = start_angle + math.radians(60)
+
+        spawn_x = self.sword.x
+        spawn_y = self.sword.y
+
 
     def exit(self, e):
         pass  # 0.2초가 지나면 Cooldown 상태로
@@ -138,7 +141,7 @@ class Swing:
 class Cooldown:
     def __init__(self, sword):
         self.sword = sword
-        self.cooldown_duration = 0.3
+        self.cooldown_duration = 1.0
 
     def enter(self, e):
         self.timer = 0.0
@@ -255,3 +258,18 @@ class Sword:
             draw_center_y - camera.world_b,
             self.draw_w, self.draw_h
         )
+
+    def get_bb(self):
+        """ 칼의 바운딩 박스를 반환합니다. """
+        # 💖 Swing 상태가 아닐 때는 충돌하지 않도록 (0,0,0,0) 반환
+        if self.state_machine.cur_state != self.SWING:
+            return 0, 0, 0, 0
+
+        # 💖 [수정] 충돌 범위를 Aura 크기(150)에 맞춰 75로 늘림
+        # (기존: self.draw_w / 2.0  -> 37.5)
+        half_size = self.aura_draw_w / 2.0  # 150 / 2.0 = 75.0
+        return self.x - half_size, self.y - half_size, self.x + half_size, self.y + half_size
+
+    def handle_collision(self, group, other):
+        """ 칼은 충돌 당해도 아무것도 하지 않습니다. """
+        pass

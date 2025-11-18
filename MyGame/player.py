@@ -143,6 +143,10 @@ class Player:
         # 💖 [추가] Sword 객체 생성 (self를 넘겨줘서 player를 인식하게 함)
         self.sword = Sword(self)
 
+        # 💖💖💖 [아래 1줄 추가] 💖💖💖
+        # 💖 칼을 게임 월드에 추가하여 충돌 검사 대상으로 만듭니다.
+        game_world.add_object(self.sword, 1)  # (플레이어와 같은 레이어)
+
     def load_resources(self):
         """ 모든 스프라이트 시트와 메타데이터(크기, 프레임 수)를 로드합니다. """
         self.images = {'Idle': {}, 'Walk': {}}
