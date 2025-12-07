@@ -6,6 +6,7 @@ import play_mode  # 💖 [추가] 플레이어 객체(play_mode.player)를 참�
 
 from pico2d import *
 from state_machine import StateMachine
+from gun import Gun  # 💖 [추가]
 
 # 💖 [추가] 속도 상수
 PIXEL_PER_METER = (10.0 / 0.3)  # 10 pixel 30 cm
@@ -300,6 +301,12 @@ class Enemy1:
         self.knockback_dir_x = 0.0
         self.knockback_dir_y = 0.0
 
+        # 💖 [추가] 총 생성
+        self.gun = Gun(self)
+
+        # 💖 [추가] 공격 타이머 (너무 빨리 쏘지 않게)
+        self.attack_timer = 0.0
+
         # 💖 [추가] 상태 머신 정의
         self.IDLE = Idle(self)
         self.WALK = Walk(self)
@@ -354,13 +361,22 @@ class Enemy1:
             else:
                 self.state_machine.handle_state_event(('PLAYER_OUT_OF_RANGE', None))
 
+        if dist_sq < self.detection_range_sq:
+            self.attack_timer += game_framework.frame_time
+            # 1.5초마다 사격 시도
+            if self.attack_timer > 0.5:
+                self.gun.fire()
+                self.attack_timer = 0.0
+
         self.state_machine.update()
+        self.gun.update()  # 💖 [추가] 총 업데이트
 
     def draw(self, camera):
         self.state_machine.draw(camera)
         # 💖 [추가] 디버깅용 BBox
         l, b, r, t = self.get_bb()
         draw_rectangle(l - camera.world_l, b - camera.world_b, r - camera.world_l, t - camera.world_b)
+        self.gun.draw(camera)  # 💖 [추가] 총 그리기
 
     def handle_event(self, event):
         pass  # Enemy1은 스스로 판단하므로 외부 이벤트는 받지 않음

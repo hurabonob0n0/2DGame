@@ -372,4 +372,12 @@ class Player:
         return self.x - 15, self.y - 25, self.x + 15, self.y + 25
 
     def handle_collision(self, group, other):
-        pass
+        # 💖 [추가] 적 총알과 충돌 시 처리
+        if group == 'player:enemy_bullet':
+            # 1. 구르기 상태(ROLL)면 무적 -> 무시
+            if self.state_machine.cur_state == self.ROLL:
+                return
+
+                # 2. 아니면 피격 처리 (여기에 HP 감소나 사망 로직 추가 가능)
+            print("Player hit by bullet!")
+            # 예: self.hp -= 1

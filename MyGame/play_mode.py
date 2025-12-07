@@ -42,6 +42,7 @@ def init():
 
     # 💖 [삭제] 2. [추가] 검기(Bullet) vs Enemy 충돌 그룹 등록
     # 💖 [삭제] game_world.add_collision_pair('player_bullet:enemy', None, None)
+    game_world.add_collision_pair('player:enemy_bullet', player, None)
 
     for i in range(10):
         # 💖 2-1. Enemy1 생성
