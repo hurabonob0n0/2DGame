@@ -1,27 +1,40 @@
+# main.py
 import pygame
 from app import GameInstance
 from scene_sys import Scene, sys_scenes
-# 새로 만든 Player 클래스 import
 from player import Player
+from camera import Camera  # Camera 클래스 import
+
 
 class MyGameScene(Scene):
     def enter(self):
         print("Scene Entered: MyGameScene")
 
-        # Player 클래스 인스턴스 생성
-        # 내부적으로 GameObject.__init__이 호출되어 ObjectManager에 자동 등록됨
+        # 1. 플레이어 생성 (400, 300 위치)
         self.player = Player(400, 300)
 
+        # 2. 카메라 생성 (초기 위치는 플레이어와 동일하게)
+        # GameObject를 상속받았으므로 ObjectManager에 자동 등록됩니다.
+        self.camera = Camera(400, 300)
+
+        # (선택 사항) 줌을 당겨서 보고 싶다면?
+        # self.camera.zoom = 1.5
+
     def update(self, dt):
-        # 씬 레벨에서 별도로 처리할 로직이 없다면 비워둬도 됩니다.
-        # Player의 움직임은 Player.update()에서 처리되고,
-        # object_sys.update_all()에 의해 자동으로 호출됩니다.
-        pass
+        # 3. [요청하신 기능] 매 프레임 카메라가 플레이어를 따라다님
+        # 카메라도 GameObject이므로 .position 속성을 가집니다.
+
+        # 단순히 값만 대입하면 Hard Follow (딱딱하게 따라붙음)
+        self.camera.position[0] = self.player.position[0]
+        self.camera.position[1] = self.player.position[1]
+
+        # [참고] 부드럽게 따라가게 하려면(Lerp) 나중에 이렇게 바꾸세요:
+        # lerp_speed = 5.0 * dt
+        # self.camera.position[0] += (self.player.position[0] - self.camera.position[0]) * lerp_speed
+        # self.camera.position[1] += (self.player.position[1] - self.camera.position[1]) * lerp_speed
+
 
 if __name__ == "__main__":
     game = GameInstance()
-
-    # 첫 씬 로드
     sys_scenes.change_scene(MyGameScene())
-
     game.run()

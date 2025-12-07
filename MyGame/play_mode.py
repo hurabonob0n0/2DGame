@@ -1,20 +1,15 @@
 import random
-# 💖 [수정] pico2d의 grab_cursor, hide_cursor 등을 사용하기 위해 import * 로 변경합니다.
+
 from pico2d import *
 
 import game_framework
 import game_world
 
-# from arrow import Arrow # (현재 사용 안 함)
 from player import Player
-# from ground import Ground # (현재 사용 안 함)
-# from ball import Ball # (현재 사용 안 함)
-from zombie import Zombie # 💖 [수정] 주석 해제
 from camera import Camera
 import enemy1
 
 player = None
-zombie = None # 💖 [수정] 주석 해제
 camera = None
 
 
@@ -32,13 +27,12 @@ def handle_events():
 def init():
     global player
     global camera
-    global zombie # 💖 [추가] zombie 전역 변수
 
     # ground = Ground() # (현재 사용 안 함)
     # game_world.add_object(ground, 0) # (현재 사용 안 함)
 
     player = Player()
-    game_world.add_object(player, 1)
+    game_world.add_object(player, 3)
 
     # 💖💖💖 [아래 블록 수정] 💖💖💖
 

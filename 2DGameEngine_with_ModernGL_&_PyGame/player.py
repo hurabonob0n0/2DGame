@@ -53,7 +53,7 @@ class Player(GameObject):
             self.position[1] += velocity[1] * self.move_speed * dt
 
         # 2. 마우스 각도 및 이동 상태에 따른 애니메이션 변경
-        self._update_animation_by_mouse(is_moving)
+#        self._update_animation_by_mouse(is_moving)
 
     def _update_animation_by_mouse(self, is_moving):
         mouse_pos = pygame.mouse.get_pos()

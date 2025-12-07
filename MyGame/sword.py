@@ -141,7 +141,7 @@ class Swing:
 class Cooldown:
     def __init__(self, sword):
         self.sword = sword
-        self.cooldown_duration = 1.0
+        self.cooldown_duration = 0.5
 
     def enter(self, e):
         self.timer = 0.0

@@ -1,6 +1,5 @@
 import math
-# 💖 [수정] SDLK_a, SDLK_d, SDLK_w, SDLK_s 추가
-from pico2d import load_image, draw_rectangle
+from pico2d import load_image, draw_rectangle, SDL_MOUSEBUTTONDOWN, SDL_BUTTON_RIGHT  # 💖 우클릭 상수 추가
 from sdl2 import SDL_KEYDOWN, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT, SDLK_UP, SDLK_DOWN, SDL_MOUSEMOTION, SDLK_a, SDLK_d, \
     SDLK_w, SDLK_s
 
@@ -8,11 +7,11 @@ import game_world
 import game_framework
 
 from state_machine import StateMachine
-from sword import Sword  # 💖 [추가] Sword 클래스를 임포트
+from sword import Sword
 
 
 # --------------------------------------------------------------------------------
-# 상태 변경을 위한 이벤트 함수
+# 이벤트 함수
 # --------------------------------------------------------------------------------
 
 def event_stop(e):
@@ -23,86 +22,160 @@ def event_run(e):
     return e[0] == 'RUN'
 
 
+# 💖 [추가] 구르기 이벤트 함수 (우클릭 감지)
+# 주의: 쿨타임 체크는 Player.handle_event나 update에서 선행되어야 함, 여기서는 입력만 확인
+def event_roll(e):
+    return e[0] == 'INPUT' and e[1].type == SDL_MOUSEBUTTONDOWN and e[1].button == SDL_BUTTON_RIGHT
+
+
+def event_roll_finish_idle(e):
+    return e[0] == 'ROLL_FINISH_IDLE'
+
+def event_roll_finish_run(e):
+    return e[0] == 'ROLL_FINISH_RUN'
+
+
 # --------------------------------------------------------------------------------
-# 플레이어 속도 관련 상수 (boy.py와 동일)
+# 상수
 # --------------------------------------------------------------------------------
-PIXEL_PER_METER = (10.0 / 0.3)  # 10 pixel 30 cm
-RUN_SPEED_KMPH = 30.0  # Km / Hour
+PIXEL_PER_METER = (10.0 / 0.3)
+RUN_SPEED_KMPH = 30.0
 RUN_SPEED_MPM = (RUN_SPEED_KMPH * 1000.0 / 60.0)
 RUN_SPEED_MPS = (RUN_SPEED_MPM / 60.0)
-WALK_SPEED_PPS = (RUN_SPEED_MPS * PIXEL_PER_METER)  # RUN -> WALK로 이름 변경
+WALK_SPEED_PPS = (RUN_SPEED_MPS * PIXEL_PER_METER)
 
-# 플레이어 액션 속도 관련 상수 (boy.py와 동일)
 TIME_PER_ACTION = 0.75
 ACTION_PER_TIME = 1.0 / TIME_PER_ACTION
-FRAMES_PER_ACTION = 8  # 이 값은 update_animation_frame에서 동적으로 사용됨
+FRAMES_PER_ACTION = 8
 
 
 # --------------------------------------------------------------------------------
-# 상태 클래스 (Idle, Walk)
+# 💖 [추가] Roll 상태 클래스
 # --------------------------------------------------------------------------------
+class Roll:
+    def __init__(self, player):
+        self.player = player
+        self.roll_dir_x = 0.0
+        self.roll_dir_y = 0.0
+        # 9프레임 애니메이션
+        self.total_frames = 9.0
 
+        # 💖 애니메이션 속도: 구르기는 좀 더 빠르게 재생 (예: 0.5초 안에 9프레임 소화)
+        self.duration = 0.5
+        self.fps = self.total_frames / self.duration
+
+    def enter(self, e):
+        self.player.frame = 0.0
+
+        # 💖 1. 구르는 방향 고정 (클릭 순간의 마우스 방향)
+        # (update_mouse_direction은 애니메이션 방향만 정하므로, 실제 이동 벡터를 계산해야 함)
+        mx, my = self.player.mouse_world_x, self.player.mouse_world_y
+        dx = mx - self.player.x
+        dy = my - self.player.y
+        dist = math.sqrt(dx ** 2 + dy ** 2)
+
+        if dist > 0:
+            self.roll_dir_x = dx / dist
+            self.roll_dir_y = dy / dist
+        else:
+            self.roll_dir_x = 1.0  # 예외 처리
+            self.roll_dir_y = 0.0
+
+        # 💖 2. 구르는 방향에 맞춰 애니메이션 방향('F', 'B' 등) 설정
+        # (기존 update_mouse_direction 로직을 재활용하되, 마우스 위치가 아닌 '고정된 방향' 기준이어야 하지만,
+        #  여기서는 enter 시점의 마우스 위치가 곧 이동 방향이므로 한 번 호출해주면 됨)
+        self.player.update_mouse_direction()
+
+    def exit(self, e):
+        # 💖 구르기가 끝나면 쿨타임 시작 (0.5초)
+        self.player.roll_cooldown = 0.5
+
+    def do(self):
+        # 1. 프레임 진행
+        self.player.frame += self.fps * game_framework.frame_time
+
+        # 💖 2. 애니메이션 종료 체크
+        if self.player.frame >= self.total_frames:
+            # 마지막 프레임 고정 후 종료
+            self.player.frame = self.total_frames - 1
+            # 💖 [수정] 이동 키가 눌려있는지 확인하여 이벤트를 분기합니다.
+            if self.player.xdir != 0 or self.player.ydir != 0:
+                self.player.state_machine.handle_state_event(('ROLL_FINISH_RUN', None))
+            else:
+                self.player.state_machine.handle_state_event(('ROLL_FINISH_IDLE', None))
+            return
+
+        # 💖 3. 가변 속도 계산 (Lerp)
+        # 프레임 인덱스 (0 ~ 8.xx)
+        cur_idx = int(self.player.frame)
+
+        # 기본 걷기 속도
+        base_speed = WALK_SPEED_PPS
+        current_speed = 0.0
+
+        # 중간 프레임(4)을 기준으로 속도 변화
+        if cur_idx <= 4:
+            # 0~4 프레임: 0.5배 -> 2.5배 가속
+            # 진행률 (0.0 ~ 1.0)
+            alpha = cur_idx / 4.0
+            speed_mult = (1.0 - alpha) * 0.5 + alpha * 2.5
+        else:
+            # 5~8 프레임: 2.5배 -> 0.5배 감속
+            # 진행률 (0.0 ~ 1.0)
+            alpha = (cur_idx - 4) / 4.0
+            speed_mult = (1.0 - alpha) * 2.5 + alpha * 0.5
+
+        current_speed = base_speed * speed_mult
+
+        # 4. 이동 적용
+        self.player.x += self.roll_dir_x * current_speed * game_framework.frame_time
+        self.player.y += self.roll_dir_y * current_speed * game_framework.frame_time
+
+    def draw(self, camera):
+        self.player.draw_sprite('Roll', camera)
+
+
+# --------------------------------------------------------------------------------
+# 기존 상태 클래스 (Idle, Walk) - 변경 없음 (생략)
+# --------------------------------------------------------------------------------
 class Idle:
-    """ IDLE 상태: 멈춰있을 때 """
-
     def __init__(self, player):
         self.player = player
 
-    def enter(self, e):
-        pass
+    def enter(self, e): pass
 
-    def exit(self, e):
-        pass
+    def exit(self, e): pass
 
     def do(self):
-        # 마우스 방향 추적
         self.player.update_mouse_direction()
-        # 현재 방향에 맞는 Idle 애니메이션 프레임 업데이트
         self.player.update_animation_frame('Idle')
 
-    def draw(self, camera):  # 💖 [수정] camera 매개변수 추가
-        # 현재 방향에 맞는 Idle 스프라이트 그리기
-        self.player.draw_sprite('Idle', camera)  # 💖 [수정] camera 전달
+    def draw(self, camera):
+        self.player.draw_sprite('Idle', camera)
 
 
 class Walk:
-    """ WALK 상태: 이동 중일 때 """
-
     def __init__(self, player):
         self.player = player
 
-    def enter(self, e):
-        pass
+    def enter(self, e): pass
 
-    def exit(self, e):
-        pass
+    def exit(self, e): pass
 
     def do(self):
-        # 마우스 방향 추적
         self.player.update_mouse_direction()
-        # 현재 방향에 맞는 Walk 애니메이션 프레임 업데이트
         self.player.update_animation_frame('Walk')
-
-        # 💖 [수정] 이동 벡터 정규화
         move_x = self.player.xdir
         move_y = self.player.ydir
-
         magnitude = math.sqrt(move_x ** 2 + move_y ** 2)
-
         if magnitude > 0:
             move_x /= magnitude
             move_y /= magnitude
-
         self.player.x += move_x * WALK_SPEED_PPS * game_framework.frame_time
         self.player.y += move_y * WALK_SPEED_PPS * game_framework.frame_time
 
-        # 캔버스 밖으로 나가지 않도록 고정 (필요시 주석 해제)
-        # self.player.x = clamp(50, self.player.x, 1920 - 50)
-        # self.player.y = clamp(50, self.player.y, 1080 - 50)
-
-    def draw(self, camera):  # 💖 [수정] camera 매개변수 추가
-        # 현재 방향에 맞는 Walk 스프라이트 그리기
-        self.player.draw_sprite('Walk', camera)  # 💖 [수정] camera 전달
+    def draw(self, camera):
+        self.player.draw_sprite('Walk', camera)
 
 
 # --------------------------------------------------------------------------------
@@ -113,143 +186,151 @@ class Player:
     def __init__(self):
         self.x, self.y = 1920 // 2, 1080 // 2
         self.frame = 0.0
-        self.xdir, self.ydir = 0, 0  # 키보드 입력에 따른 이동 방향
+        self.xdir, self.ydir = 0, 0
+        self.mouse_x, self.mouse_y = 0, 0
+        self.mouse_world_x, self.mouse_world_y = 0, 0
+        self.draw_scale = 2.5
+        self.anim_direction = 'F'
+        self.anim_flip = ''
 
-        # 💖 [수정] 마우스 스크린/월드 좌표 분리
-        self.mouse_x, self.mouse_y = 0, 0  # 마우스 '스크린' 위치 (0~1920)
-        self.mouse_world_x, self.mouse_world_y = 0, 0  # 마우스 '월드' 위치
-
-        self.draw_scale = 2.5  # 캐릭터 크기 배율
-
-        # 💖 애니메이션 방향 (문자열)과 좌우반전 (flip)
-        self.anim_direction = 'F'  # 'F', 'B', 'RF', 'RB' 중 하나
-        self.anim_flip = ''  # 'h' (좌우반전) 또는 '' (원본)
+        # 💖 [추가] 구르기 쿨타임 타이머
+        self.roll_cooldown = 0.0
 
         self.images = {}
         self.sprite_data = {}
         self.load_resources()
 
-        # 💖 상태 머신 정의
+        # 상태 인스턴스
         self.IDLE = Idle(self)
         self.WALK = Walk(self)
+        self.ROLL = Roll(self)  # 💖 [추가]
+
+        # 💖 [수정] 상태 머신 전환 규칙
         self.state_machine = StateMachine(
             self.IDLE,
             {
-                self.IDLE: {event_run: self.WALK},
-                self.WALK: {event_stop: self.IDLE}
+                self.IDLE: {
+                    event_run: self.WALK,
+                    event_roll: self.ROLL
+                },
+                self.WALK: {
+                    event_stop: self.IDLE,
+                    event_roll: self.ROLL
+                },
+                self.ROLL: {
+                    # 💖 [수정] 상황에 따라 두 갈래로 나뉩니다.
+                    event_roll_finish_idle: self.IDLE,  # 키 입력 없으면 Idle로
+                    event_roll_finish_run: self.WALK  # 키 입력 있으면 바로 Walk로
+                }
             }
         )
 
-        # 💖 [추가] Sword 객체 생성 (self를 넘겨줘서 player를 인식하게 함)
         self.sword = Sword(self)
-
-        # 💖💖💖 [아래 1줄 추가] 💖💖💖
-        # 💖 칼을 게임 월드에 추가하여 충돌 검사 대상으로 만듭니다.
-        game_world.add_object(self.sword, 1)  # (플레이어와 같은 레이어)
+        game_world.add_object(self.sword, 1)
 
     def load_resources(self):
-        """ 모든 스프라이트 시트와 메타데이터(크기, 프레임 수)를 로드합니다. """
-        self.images = {'Idle': {}, 'Walk': {}}
-        self.sprite_data = {'Idle': {}, 'Walk': {}}
+        self.images = {'Idle': {}, 'Walk': {}, 'Roll': {}}  # 💖 Roll 추가
+        self.sprite_data = {'Idle': {}, 'Walk': {}, 'Roll': {}}  # 💖 Roll 추가
 
-        # --- 💖 [수정] 경로를 './Assets/Player/...'로 변경 ---
-
-        # --- IDLE 이미지 로드 ---
+        # --- IDLE & WALK (기존 코드 유지) ---
+        # (기존 경로 유지...)
         self.images['Idle']['F'] = load_image('./Assets/Player/PLAYER_IDLE_F_16X23X4.png')
         self.sprite_data['Idle']['F'] = {'w': 16, 'h': 23, 'frames': 4}
-
         self.images['Idle']['B'] = load_image('./Assets/Player/PLAYER_IDLE_B_12X23X4.png')
         self.sprite_data['Idle']['B'] = {'w': 12, 'h': 23, 'frames': 4}
-
         self.images['Idle']['RF'] = load_image('./Assets/Player/PLAYER_IDLE_RF_18X23X4.png')
         self.sprite_data['Idle']['RF'] = {'w': 18, 'h': 23, 'frames': 4}
-
         self.images['Idle']['RB'] = load_image('./Assets/Player/PLAYER_IDLE_RB_15X23X4.png')
         self.sprite_data['Idle']['RB'] = {'w': 15, 'h': 23, 'frames': 4}
 
-        # --- WALK 이미지 로드 ---
         self.images['Walk']['F'] = load_image('./Assets/Player/PLAYER_WALK_F_14X30X3.png')
         self.sprite_data['Walk']['F'] = {'w': 14, 'h': 30, 'frames': 3}
-
         self.images['Walk']['B'] = load_image('./Assets/Player/PLAYER_WALK_B_14X23X3.png')
         self.sprite_data['Walk']['B'] = {'w': 14, 'h': 23, 'frames': 3}
-
         self.images['Walk']['RF'] = load_image('./Assets/Player/PLAYER_WALK_RF_17X25X3.png')
         self.sprite_data['Walk']['RF'] = {'w': 17, 'h': 25, 'frames': 3}
-
         self.images['Walk']['RB'] = load_image('./Assets/Player/PLAYER_WALK_RB_17X26X3.png')
         self.sprite_data['Walk']['RB'] = {'w': 17, 'h': 26, 'frames': 3}
 
-    # 💖💖💖 [수정된 부분] 💖💖💖
+        # 💖 [추가] ROLL 이미지 로드 (보내주신 파일명과 크기 반영) -----------------------
+
+        # 1. PLAYER_ROLL_F_20X26X9.png
+        self.images['Roll']['F'] = load_image('./Assets/Player/PLAYER_ROLL_F_20X26X9.png')
+        self.sprite_data['Roll']['F'] = {'w': 20, 'h': 26, 'frames': 9}
+
+        # 2. PLAYER_ROLL_B_23X27X9.png
+        self.images['Roll']['B'] = load_image('./Assets/Player/PLAYER_ROLL_B_23X27X9.png')
+        self.sprite_data['Roll']['B'] = {'w': 23, 'h': 27, 'frames': 9}
+
+        # 3. PLAYER_ROLL_RF_21X24X9.png
+        self.images['Roll']['RF'] = load_image('./Assets/Player/PLAYER_ROLL_RF_21X24X9.png')
+        self.sprite_data['Roll']['RF'] = {'w': 21, 'h': 24, 'frames': 9}
+
+        # 4. PLAYER_ROLL_RB_21X26X9.png
+        self.images['Roll']['RB'] = load_image('./Assets/Player/PLAYER_ROLL_RB_21X26X9.png')
+        self.sprite_data['Roll']['RB'] = {'w': 21, 'h': 26, 'frames': 9}
+
     def update_mouse_direction(self):
-        """ 마우스 위치에 따라 self.anim_direction과 self.anim_flip을 설정합니다. (6방향) """
-
-        # 💖 [수정] 'self.mouse_x' -> 'self.mouse_world_x'
-        # 💖 [수정] 'self.mouse_y' -> 'self.mouse_world_y'
-
-        # 플레이어 중심에서 '마우스의 월드 좌표'까지의 벡터 계산
+        # (기존 코드 유지)
         look_dir_x = self.mouse_world_x - self.x
         look_dir_y = self.mouse_world_y - self.y
-
-        # 벡터를 각도로 변환 (atan2 사용)
         angle_rad = math.atan2(look_dir_y, look_dir_x)
         angle_deg = math.degrees(angle_rad)
 
-        # 6방향으로 변환 (각 60도씩)
-        if -120.0 <= angle_deg < -60.0:  # 남(South) - 'F'
-            self.anim_direction = 'F'
+        if -120.0 <= angle_deg < -60.0:  # 남(F)
+            self.anim_direction = 'F';
             self.anim_flip = ''
-        elif 60.0 <= angle_deg < 120.0:  # 북(North) - 'B'
-            self.anim_direction = 'B'
+        elif 60.0 <= angle_deg < 120.0:  # 북(B)
+            self.anim_direction = 'B';
             self.anim_flip = ''
-        elif -60.0 <= angle_deg < 0.0:  # 남동(South-East) - 'RF'
-            self.anim_direction = 'RF'
+        elif -60.0 <= angle_deg < 0.0:  # 남동(RF)
+            self.anim_direction = 'RF';
             self.anim_flip = ''
-        elif 0.0 <= angle_deg < 60.0:  # 북동(North-East) - 'RB'
-            self.anim_direction = 'RB'
+        elif 0.0 <= angle_deg < 60.0:  # 북동(RB)
+            self.anim_direction = 'RB';
             self.anim_flip = ''
-        elif -180.0 <= angle_deg < -120.0:  # 남서(South-West) - 'LF' (RF + flip)
-            self.anim_direction = 'RF'
+        elif -180.0 <= angle_deg < -120.0:  # 남서(RF + h)
+            self.anim_direction = 'RF';
             self.anim_flip = 'h'
-        else:  # (120.0 <= angle_deg <= 180.0) # 북서(North-West) - 'LB' (RB + flip)
-            self.anim_direction = 'RB'
+        else:  # 북서(RB + h)
+            self.anim_direction = 'RB';
             self.anim_flip = 'h'
-
-    # 💖💖💖 [수정 완료] 💖💖💖
 
     def update_animation_frame(self, state_name):
-        """ 현재 상태와 방향에 맞는 애니메이션 프레임을 업데이트합니다. """
-
         data = self.sprite_data[state_name][self.anim_direction]
-
         self.frame = (self.frame + FRAMES_PER_ACTION * ACTION_PER_TIME * game_framework.frame_time) % data['frames']
 
-    def draw_sprite(self, state_name, camera):  # 💖 [수정] camera 매개변수 추가
-        """ 현재 상태와 방향에 맞는 스프라이트를 그립니다. """
-
+    def draw_sprite(self, state_name, camera):
         data = self.sprite_data[state_name][self.anim_direction]
         image = self.images[state_name][self.anim_direction]
-
         image.clip_composite_draw(
             int(self.frame) * data['w'], 0, data['w'], data['h'],
             0, self.anim_flip,
-            # 💖 [수정] 카메라 좌표계 적용
             self.x - camera.world_l, self.y - camera.world_b,
             data['w'] * self.draw_scale, data['h'] * self.draw_scale
         )
 
     def update(self):
+        # 💖 [추가] 쿨타임 감소
+        if self.roll_cooldown > 0:
+            self.roll_cooldown -= game_framework.frame_time
+
         self.state_machine.update()
-        self.sword.update()  # 💖 [추가] 플레이어가 업데이트될 때 칼도 업데이트
+        #self.sword.update()
 
     def handle_event(self, event):
         if event.type == SDL_MOUSEMOTION:
-            # 여기서는 '스크린' 좌표를 저장하는 것이 맞습니다.
             self.mouse_x, self.mouse_y = event.x, 1080 - 1 - event.y
 
-        # 💖 [수정] 키 입력과 마우스 입력을 별도로 처리
+        # 💖 [추가] 우클릭(구르기) 처리
+        # - 현재 상태가 ROLL이 아니고
+        # - 쿨타임이 0 이하일 때만 이벤트를 넘겨줌
+        if (event.type == SDL_MOUSEBUTTONDOWN and event.button == SDL_BUTTON_RIGHT):
+            if self.state_machine.cur_state != self.ROLL and self.roll_cooldown <= 0:
+                self.state_machine.handle_state_event(('INPUT', event))
+                return  # 구르기가 실행되면 아래 이동 로직은 스킵
 
-        # 1. 키보드 입력으로 플레이어 상태 변경 (movement)
+        # 기존 이동(WASD) 로직
         if event.key in (SDLK_a, SDLK_d, SDLK_w, SDLK_s):
             cur_xdir, cur_ydir = self.xdir, self.ydir
             if event.type == SDL_KEYDOWN:
@@ -277,15 +358,13 @@ class Player:
                 else:
                     self.state_machine.handle_state_event(('RUN', None))
 
-        # 2. 💖 [추가] 마우스 클릭 등 모든 이벤트를 칼의 상태 머신으로 전달
-        #    (WASD 입력도 전달되지만, 칼의 IDLE 상태는 키보드 입력을 무시함)
         self.sword.handle_event(event)
 
-    def draw(self, camera):  # 💖 [수정] camera 매개변수 추가
-        self.state_machine.draw(camera)  # 💖 [수정] camera 전달
-        self.sword.draw(camera)  # 💖 [추가] 플레이어를 그린 후 칼을 그림
+    def draw(self, camera):
+        self.state_machine.draw(camera)
+        self.sword.draw(camera)
 
-        # 디버깅용 BBox 그리기 (필요시 주석 해제)
+        # 디버그용 (필요시 주석 해제)
         l, b, r, t = self.get_bb()
         draw_rectangle(l - camera.world_l, b - camera.world_b, r - camera.world_l, t - camera.world_b)
 
