@@ -59,7 +59,7 @@ class Shoot:
                 self.gun.state_machine.handle_state_event(('SHOOT_FINISH', None))
 
     def fire_bullet(self):
-        error_deg = random.uniform(-3.0, 3.0)
+        error_deg = random.uniform(-5.0, 5.0)
         final_angle = self.gun.angle + math.radians(error_deg)
 
         # 💖 [수정] 총구 위치: 이제 총 자체가 공전하므로, 총의 현재 위치(self.x, y)에서 조금 더 앞으로 나간 곳
@@ -71,6 +71,7 @@ class Shoot:
         bullet = Bullet(bx, by, final_angle)
         game_world.add_object(bullet, 2)
         game_world.add_collision_pair('player:enemy_bullet', None, bullet)
+        game_world.add_collision_pair('sword:enemy_bullet', None, bullet)
 
     def draw(self, camera):
         cur_frame = int(self.frame) % 4

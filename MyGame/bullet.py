@@ -2,6 +2,8 @@ import math
 import game_framework
 from pico2d import load_image, draw_rectangle
 
+import player
+
 # 속도 상수
 PIXEL_PER_METER = (10.0 / 0.3)
 BULLET_SPEED_KMPH = 60.0
@@ -22,7 +24,7 @@ class Bullet:
         self.dx = math.cos(self.angle) * BULLET_SPEED_PPS
         self.dy = math.sin(self.angle) * BULLET_SPEED_PPS
 
-        self.radius = 10
+        self.radius = 32
         # 💖 [수정] 총알 삭제 거리 (1920 * 3 = 5760픽셀)
         self.max_range_sq = (1920 * 3) ** 2
 
@@ -38,13 +40,19 @@ class Bullet:
 
     def draw(self, camera):
         # 💖 [수정] 크기 1.3배 적용 (32 * 1.3 = 41.6 -> 약 42)
-        draw_size = 32 * 1.3
-        self.image.draw(self.x - camera.world_l, self.y - camera.world_b, draw_size, draw_size)
+        self.image.draw(self.x - camera.world_l, self.y - camera.world_b, self.radius, self.radius)
 
     def get_bb(self):
         return self.x - self.radius, self.y - self.radius, self.x + self.radius, self.y + self.radius
 
     def handle_collision(self, group, other):
         if group == 'player:enemy_bullet':
+            if other.state_machine.cur_state == other.ROLL:
+                return  # 💖 구르기 중이면 총알을 삭제하지 않고 그냥 통과(무시)
+            import game_world
+            game_world.remove_object(self)
+
+        elif group == 'sword:enemy_bullet':
+            # (이미 Sword.get_bb에서 SWING 상태가 아니면 충돌 안 하도록 처리되어 있음)
             import game_world
             game_world.remove_object(self)

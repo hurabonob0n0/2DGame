@@ -118,7 +118,7 @@ class Roll:
             # 0~4 프레임: 0.5배 -> 2.5배 가속
             # 진행률 (0.0 ~ 1.0)
             alpha = cur_idx / 4.0
-            speed_mult = (1.0 - alpha) * 0.5 + alpha * 2.5
+            speed_mult = (1.0 - alpha) * 0.5 + alpha * 4
         else:
             # 5~8 프레임: 2.5배 -> 0.5배 감속
             # 진행률 (0.0 ~ 1.0)

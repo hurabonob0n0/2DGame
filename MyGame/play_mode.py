@@ -43,6 +43,7 @@ def init():
     # 💖 [삭제] 2. [추가] 검기(Bullet) vs Enemy 충돌 그룹 등록
     # 💖 [삭제] game_world.add_collision_pair('player_bullet:enemy', None, None)
     game_world.add_collision_pair('player:enemy_bullet', player, None)
+    game_world.add_collision_pair('sword:enemy_bullet', player.sword, None)
 
     for i in range(10):
         # 💖 2-1. Enemy1 생성
@@ -53,6 +54,7 @@ def init():
 
         # 💖 2-3. [수정] Enemy를 두 충돌 그룹 모두에 추가
         game_world.add_collision_pair('sword:enemy', None, enemy)
+        game_world.add_collision_pair('sword_bullet:enemy', None, enemy)
 
     camera = Camera()
 

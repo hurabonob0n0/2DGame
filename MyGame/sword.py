@@ -1,10 +1,8 @@
 import math
 from pico2d import load_image, draw_rectangle, SDL_MOUSEBUTTONDOWN, SDL_BUTTON_LEFT
 import game_framework
-import game_world  # 💖 [추가] game_world 임포트
-
-# 💖 [추가] 상태 머신 임포트
 from state_machine import StateMachine
+from sword_bullet import SwordBullet # 💖 [추가] 임포트
 
 def attack_down(e):
     """ 마우스 왼쪽 버튼이 눌렸는지 확인하는 이벤트 핸들러 """
@@ -29,6 +27,7 @@ class Idle:
         # 💖 공격이 시작될 때(exit) 현재 각도를 '공격 시작 각도'로 저장
         if attack_down(e):
             self.sword.attack_start_angle = self.sword.angle
+            self.fire_sword_bullet(self.sword.attack_start_angle)  # 중간 각도(목표점)로 발사
 
     def do(self):
         # 💖 기존 update 함수의 '마우스 따라다니기' 로직
@@ -41,6 +40,18 @@ class Idle:
 
     def draw(self, camera):
         self.sword.draw_rotated_image(camera)
+
+    def fire_sword_bullet(self, angle):
+        import game_world
+        # 발사 위치: 플레이어 중심에서 약간 앞
+        spawn_dist = 30
+        bx = self.sword.player.x + math.cos(angle) * spawn_dist
+        by = self.sword.player.y + math.sin(angle) * spawn_dist
+
+        bullet = SwordBullet(bx, by, angle)
+        game_world.add_object(bullet, 2)  # 레이어 2 (플레이어와 적 사이)
+        # 💖 [핵심] 충돌 그룹에 등록
+        game_world.add_collision_pair('sword_bullet:enemy', bullet, None)
 
 
 # 💖 [추가] 칼의 'Swing' 상태 (휘두르기)
@@ -71,10 +82,6 @@ class Swing:
             # 💖 마우스가 왼쪽에 있으면: -60도 -> +60도
             self.swing_start_angle = start_angle - math.radians(60)
             self.swing_mid_angle = start_angle + math.radians(60)
-
-        spawn_x = self.sword.x
-        spawn_y = self.sword.y
-
 
     def exit(self, e):
         pass  # 0.2초가 지나면 Cooldown 상태로
@@ -109,6 +116,8 @@ class Swing:
 
         # 4. 💖 결정된 각도(self.sword.angle)로 칼의 실제 위치 업데이트
         self.sword.update_pivot_and_position()
+
+
 
     def draw(self, camera):
         # 1. 💖 칼을 먼저 그린다 (이것은 self.sword.angle을 사용)
