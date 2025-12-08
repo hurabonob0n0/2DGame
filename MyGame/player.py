@@ -1,5 +1,5 @@
 import math
-from pico2d import load_image, draw_rectangle, SDL_MOUSEBUTTONDOWN, SDL_BUTTON_RIGHT  # 💖 우클릭 상수 추가
+from pico2d import load_image, draw_rectangle, SDL_MOUSEBUTTONDOWN, SDL_BUTTON_RIGHT ,load_wav ,load_music# 💖 우클릭 상수 추가
 from sdl2 import SDL_KEYDOWN, SDLK_RIGHT, SDL_KEYUP, SDLK_LEFT, SDLK_UP, SDLK_DOWN, SDL_MOUSEMOTION, SDLK_a, SDLK_d, \
     SDLK_w, SDLK_s
 
@@ -66,7 +66,7 @@ class Roll:
 
     def enter(self, e):
         self.player.frame = 0.0
-
+        self.player.roll_sound.play()
         # 💖 1. 구르는 방향 고정 (클릭 순간의 마우스 방향)
         # (update_mouse_direction은 애니메이션 방향만 정하므로, 실제 이동 벡터를 계산해야 함)
         mx, my = self.player.mouse_world_x, self.player.mouse_world_y
@@ -196,6 +196,12 @@ class Player:
         self.shadow_image = load_image('./Assets/Shadow/PShadow.png')
 
         self.hp_icon_image = load_image('./Assets/UI/PlayerHP.png')
+
+        self.hurt_sound = load_wav('./Assets/Sounds/PlayerHurt.mp3')
+        self.hurt_sound.set_volume(32)
+
+        self.roll_sound = load_wav('./Assets/Sounds/roll.wav')
+        self.roll_sound.set_volume(32)
 
         self.max_hp = 3
         self.hp = 3
@@ -415,6 +421,7 @@ class Player:
             self.hp -= 1
             if self.hp < 0: self.hp = 0
 
+            self.hurt_sound.play()
             # 4. 무적 타이머 설정 (1초)
             self.invincible_timer = 1.0
             print(f"Player Hit by Boss! HP: {self.hp}")

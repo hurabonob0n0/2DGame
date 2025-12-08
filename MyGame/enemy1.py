@@ -207,6 +207,7 @@ class Death:
 class Enemy1:
     images = None
     sprite_data = None
+    hurt_sound = None  # 💖 클래스 변수로 공유 (메모리 절약)
 
     def load_resources(self):
         if Enemy1.images is None:
@@ -229,6 +230,10 @@ class Enemy1:
 
             if 'Shadow' not in Enemy1.images:
                 Enemy1.images['Shadow'] = load_image('./Assets/Shadow/EShadow.png')
+
+        if Enemy1.hurt_sound is None:
+            Enemy1.hurt_sound = load_wav('./Assets/Sounds/EnemyHurt.wav')
+            Enemy1.hurt_sound.set_volume(30)
 
     def __init__(self):
         self.x = random.randint(800, 1200)
@@ -369,6 +374,7 @@ class Enemy1:
 
             if other.state_machine.cur_state == other.SWING:
                 self.hp -= 1
+                #Enemy1.hurt_sound.play()
                 dx = self.x - other.player.x
                 dy = self.y - other.player.y
                 dist = math.sqrt(dx ** 2 + dy ** 2)

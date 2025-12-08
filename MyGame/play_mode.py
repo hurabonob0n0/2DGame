@@ -29,6 +29,8 @@ player_start_hp = 0  # 제 2장 HP 체크용
 # 💖 [추가] 0장 전용: 움직인 시간 누적 변수
 accumulated_move_time = 0.0
 
+bgm = None
+boss_bgm = None
 
 def handle_events():
     events = get_events()
@@ -46,9 +48,17 @@ def init():
     global player, camera, game_map, font
     global stage, stage_timer, stage_1_cleared_condition
     global accumulated_move_time
+    global bgm, boss_bgm  # 💖
 
-    # 💖 [수정] 한글 폰트 로드
-    font = load_font('malgunbd.ttf', 40)
+    font = load_font('malgun.ttf', 40)
+
+    # 💖 [추가] BGM 로드 및 재생
+    bgm = load_music('./Assets/Sounds/BGM.mp3')  # 파일명 맞춰주세요
+    bgm.set_volume(32)
+    bgm.repeat_play()
+
+    boss_bgm = load_music('./Assets/Sounds/BossBGM.mp3')  # 파일명 맞춰주세요
+    boss_bgm.set_volume(40)
 
     # 1. 맵 생성
     game_map = Map()
@@ -209,21 +219,20 @@ def update():
 
     # [제 4장] 다구리
     elif stage == 4:
-        # 클리어 조건: 적 전멸
         if get_enemy_count() == 0:
             stage = 5
             stage_timer = 0.0
+            print("Stage 4 Cleared! BOSS TIME!")
 
-            print("Stage 4 Cleared! DOUBLE BOSS INCOMING!")
+            # 💖 [추가] 보스 스테이지 진입 시 BGM 교체
+            bgm.stop()
+            boss_bgm.repeat_play()
 
-            # 💖 [수정] 보스 2마리 생성
             for i in range(2):
                 bx, by = get_random_offscreen_pos()
                 boss_obj = boss.Boss()
                 boss_obj.x, boss_obj.y = bx, by
                 game_world.add_object(boss_obj, 1)
-
-                # 각 보스에 대해 충돌 그룹 등록
                 game_world.add_collision_pair('sword:enemy', None, boss_obj)
                 game_world.add_collision_pair('sword_bullet:enemy', None, boss_obj)
                 game_world.add_collision_pair('player:boss', player, boss_obj)

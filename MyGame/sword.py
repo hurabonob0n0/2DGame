@@ -1,5 +1,5 @@
 import math
-from pico2d import load_image, draw_rectangle, SDL_MOUSEBUTTONDOWN, SDL_BUTTON_LEFT
+from pico2d import load_image, draw_rectangle, SDL_MOUSEBUTTONDOWN, SDL_BUTTON_LEFT,load_wav
 import game_framework
 from state_machine import StateMachine
 from sword_bullet import SwordBullet # 💖 [추가] 임포트
@@ -66,6 +66,7 @@ class Swing:
         self.total_duration = self.phase1_duration + self.phase2_duration
 
     def enter(self, e):
+        self.sword.swing_sound.play()
         self.timer = 0.0
         # 💖 Idle 상태에서 저장해둔 '공격 시작 각도'를 가져옴
         start_angle = self.sword.attack_start_angle
@@ -201,6 +202,9 @@ class Sword:
 
         # 💖 [추가] 공격 시작 각도 저장 변수
         self.attack_start_angle = 0.0
+
+        self.swing_sound = load_wav('./Assets/Sounds/sword.wav')
+        self.swing_sound.set_volume(32)
 
         # 💖 [수정] 상태 머신 정의 (Cooldown 상태 추가)
         self.IDLE = Idle(self)

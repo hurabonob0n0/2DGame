@@ -109,6 +109,7 @@ class Jump:
     def exit(self, e):
         # 💖 EXIT 할 때 16방향 발사
         self.boss.y = self.base_y  # 위치 보정
+        self.boss.koong_sound.play()
         for i in range(16):
             angle = math.radians(i * 22.5)  # 360도 / 16 = 22.5도
             self.boss.fire_bullet(angle)
@@ -325,6 +326,9 @@ class Boss:
 
         self.load_resources()
         self.player = play_mode.player
+
+        self.koong_sound = load_wav('./Assets/Sounds/Koong.mp3')  # mp3도 load_wav로 시도 (짧은 효과음)
+        self.koong_sound.set_volume(50)
 
         self.WALK = Walk(self)
         self.JUMP = Jump(self)
