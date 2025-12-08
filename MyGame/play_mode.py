@@ -8,6 +8,7 @@ import game_world
 from player import Player
 from camera import Camera
 import enemy1
+import boss
 
 player = None
 camera = None
@@ -55,6 +56,12 @@ def init():
         # 💖 2-3. [수정] Enemy를 두 충돌 그룹 모두에 추가
         game_world.add_collision_pair('sword:enemy', None, enemy)
         game_world.add_collision_pair('sword_bullet:enemy', None, enemy)
+
+    boss_obj = boss.Boss()
+    game_world.add_object(boss_obj, 1)  # 적 레이어
+
+    # 2. 검기(Bullet) vs 보스 (새로 추가해야 함!)
+    game_world.add_collision_pair('sword_bullet:enemy', None, boss_obj)
 
     camera = Camera()
 
