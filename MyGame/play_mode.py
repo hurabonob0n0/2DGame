@@ -9,6 +9,7 @@ from player import Player
 from camera import Camera
 import enemy1
 import boss
+from map import Map
 
 player = None
 camera = None
@@ -29,8 +30,8 @@ def init():
     global player
     global camera
 
-    # ground = Ground() # (현재 사용 안 함)
-    # game_world.add_object(ground, 0) # (현재 사용 안 함)
+    game_map = Map()
+    game_world.add_object(game_map, 0)  # 레이어 0번에 추가
 
     player = Player()
     game_world.add_object(player, 3)
@@ -46,16 +47,16 @@ def init():
     game_world.add_collision_pair('player:enemy_bullet', player, None)
     game_world.add_collision_pair('sword:enemy_bullet', player.sword, None)
 
-    for i in range(10):
-        # 💖 2-1. Enemy1 생성
-        enemy = enemy1.Enemy1()
-
-        # 💖 2-2. 게임 월드에 추가
-        game_world.add_object(enemy, 1)
-
-        # 💖 2-3. [수정] Enemy를 두 충돌 그룹 모두에 추가
-        game_world.add_collision_pair('sword:enemy', None, enemy)
-        game_world.add_collision_pair('sword_bullet:enemy', None, enemy)
+    # for i in range(10):
+    #     # 💖 2-1. Enemy1 생성
+    #     enemy = enemy1.Enemy1()
+    #
+    #     # 💖 2-2. 게임 월드에 추가
+    #     game_world.add_object(enemy, 1)
+    #
+    #     # 💖 2-3. [수정] Enemy를 두 충돌 그룹 모두에 추가
+    #     game_world.add_collision_pair('sword:enemy', None, enemy)
+    #     game_world.add_collision_pair('sword_bullet:enemy', None, enemy)
 
     boss_obj = boss.Boss()
     game_world.add_object(boss_obj, 1)  # 적 레이어

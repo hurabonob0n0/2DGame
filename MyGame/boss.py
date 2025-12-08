@@ -13,14 +13,14 @@ from bullet import Bullet
 PIXEL_PER_METER = (10.0 / 0.3)
 
 # 보스 이동 속도 (WALK)
-WALK_SPEED_KMPH = 20.0
+WALK_SPEED_KMPH = 60.0
 WALK_SPEED_PPS = (WALK_SPEED_KMPH * 1000.0 / 60.0 / 60.0 * PIXEL_PER_METER)
 
 # 돌진 속도 (빠름, 300)
-DASH_SPEED_PPS = 600.0
+DASH_SPEED_PPS = 900.0
 
 # 공격 감지 거리 (이 거리 안으로 들어오면 패턴 시작)
-ATTACK_RANGE = 500.0  # 적절히 조정
+ATTACK_RANGE = 800.0  # 적절히 조정
 
 
 # --------------------------------------------------------------------------------
@@ -191,7 +191,7 @@ class Shot:
     def fire_spread(self):
         # 플레이어 방향 기준 -20, -10, +10, +20도
         base_angle = get_angle_to_player(self.boss)
-        offsets = [-20, -10, 10, 20]
+        offsets = [-20, -10,0, 10, 20]
         for deg in offsets:
             rad = math.radians(deg)
             self.boss.fire_bullet(base_angle + rad)
