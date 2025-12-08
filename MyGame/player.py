@@ -195,6 +195,12 @@ class Player:
 
         self.shadow_image = load_image('./Assets/Shadow/PShadow.png')
 
+        self.hp_icon_image = load_image('./Assets/UI/PlayerHP.png')
+
+        self.max_hp = 3
+        self.hp = 3
+        self.invincible_timer = 0.0  # 무적 시간 타이머
+
         # 💖 [추가] 구르기 쿨타임 타이머
         self.roll_cooldown = 0.0
 
@@ -317,6 +323,9 @@ class Player:
         if self.roll_cooldown > 0:
             self.roll_cooldown -= game_framework.frame_time
 
+        if self.invincible_timer > 0:
+            self.invincible_timer -= game_framework.frame_time
+
         self.state_machine.update()
         #self.sword.update()
 
@@ -363,24 +372,49 @@ class Player:
         self.sword.handle_event(event)
 
     def draw(self, camera):
-        self.shadow_image.draw(self.x - camera.world_l, self.y - camera.world_b - 33,40,20)
-        self.state_machine.draw(camera)
-        self.sword.draw(camera)
+        # 💖 [추가] 캐릭터 및 그림자 그리기 여부 결정 (깜빡임 로직)
+        visible = True
+        if self.invincible_timer > 0:
+            # 0.1초 간격으로 깜빡임: (timer * 10)을 정수로 바꿨을 때 홀수면 안 그림
+            if int(self.invincible_timer * 10) % 2 != 0:
+                visible = False
 
-        # 디버그용 (필요시 주석 해제)
-        l, b, r, t = self.get_bb()
-        draw_rectangle(l - camera.world_l, b - camera.world_b, r - camera.world_l, t - camera.world_b)
+        if visible:
+            # 1. 그림자
+            self.shadow_image.draw(self.x - camera.world_l, self.y - camera.world_b - 25)
+            # 2. 캐릭터
+            self.state_machine.draw(camera)
+            # 3. 칼 (캐릭터가 깜빡이면 칼도 같이 깜빡이게 처리)
+            self.sword.draw(camera)
+
+        # 디버그용 BB (필요시 주석 해제)
+        # l, b, r, t = self.get_bb()
+        # draw_rectangle(l - camera.world_l, b - camera.world_b, r - camera.world_l, t - camera.world_b)
+
+        # 💖 [추가] HP UI 그리기 (항상 보임)
+        # 화면 좌측 상단 (예: x=50, y=1030 부터 시작)
+        for i in range(self.hp):
+            self.hp_icon_image.draw(50 + i * 40, 1080 - 50, 40, 40)
 
     def get_bb(self):
         return self.x - 15, self.y - 25, self.x + 15, self.y + 25
 
     def handle_collision(self, group, other):
-        # 💖 [추가] 적 총알과 충돌 시 처리
-        if group == 'player:enemy_bullet':
-            # 1. 구르기 상태(ROLL)면 무적 -> 무시
+        # 💖 [수정] 충돌 그룹에 'player:boss' 추가
+        if group == 'player:enemy_bullet' or group == 'player:enemy' or group == 'player:boss':
+
+            # 1. 구르기 중이면 무적 -> 무시
             if self.state_machine.cur_state == self.ROLL:
                 return
 
-                # 2. 아니면 피격 처리 (여기에 HP 감소나 사망 로직 추가 가능)
-            print("Player hit by bullet!")
-            # 예: self.hp -= 1
+            # 2. 이미 맞아서 무적 시간이면 -> 무시
+            if self.invincible_timer > 0:
+                return
+
+            # 3. 데미지 처리
+            self.hp -= 1
+            if self.hp < 0: self.hp = 0
+
+            # 4. 무적 타이머 설정 (1초)
+            self.invincible_timer = 1.0
+            print(f"Player Hit by Boss! HP: {self.hp}")

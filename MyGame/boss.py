@@ -23,6 +23,10 @@ DASH_SPEED_PPS = 900.0
 ATTACK_RANGE = 800.0  # 적절히 조정
 
 
+HP_BAR_Y_OFFSET = 450 # 화면 중앙에서 아래로 450px
+HP_BAR_WIDTH = 1000   # (BossHPBAR.png의 대략적인 너비, 실제 파일 크기에 맞춰 조정 필요)
+HP_BAR_HEIGHT = 100    # (게이지 높이)
+
 # --------------------------------------------------------------------------------
 # 헬퍼 함수
 # --------------------------------------------------------------------------------
@@ -303,12 +307,21 @@ class Boss:
             if 'Shadow' not in Boss.images:
                 Boss.images['Shadow'] = load_image('./Assets/Shadow/EShadow.png')
 
+                # 💖 [수정] HP바 관련 이미지 2장 로드
+            if 'HP_BAR_BG' not in Boss.images:
+                Boss.images['HP_BAR_BG'] = load_image('./Assets/UI/BossHPBAR.png')
+            if 'HP_BAR_FILL' not in Boss.images:
+                Boss.images['HP_BAR_FILL'] = load_image('./Assets/UI/BossHPBARINSIDE.png')
+
     def __init__(self):
         self.x, self.y = 1000, 600
         self.hp = 20
+        self.max_hp = 20  # 💖 최대 HP 저장
         self.draw_scale = 3.0
         self.frame = 0.0
         self.anim_flip = ''
+
+        self.hit_timer = 0.0
 
         self.load_resources()
         self.player = play_mode.player
@@ -337,6 +350,8 @@ class Boss:
         )
 
     def update(self):
+        if self.hit_timer > 0:
+            self.hit_timer -= game_framework.frame_time
         self.state_machine.update()
 
     def update_animation_direction(self):
@@ -361,38 +376,39 @@ class Boss:
         )
 
     def draw(self, camera):
-        if 'Shadow' in self.images:
-            shadow = self.images['Shadow']
+        # 💖 [추가] 깜빡임 효과 (0.1초 간격으로 그리기 on/off)
+        # HP바는 항상 보여야 하므로, 그림자와 본체만 깜빡이게 처리
+        visible = True
+        if self.hit_timer > 0:
+            if int(self.hit_timer * 10) % 2 != 0:
+                visible = False
 
-            # 기본 설정 (땅에 있을 때)
-            shadow_y = self.y
-            shadow_scale = 5.0  # 보스 덩치에 맞춰 기본 2배
+        if visible:
+            if 'Shadow' in self.images:
+                # ... (기존 그림자 그리기 코드 유지) ...
+                # (이전 대화의 그림자 로직 그대로 사용하세요)
+                shadow = self.images['Shadow']
+                shadow_y = self.y
+                shadow_scale = 5.0
+                if isinstance(self.state_machine.cur_state, Jump):
+                    shadow_y = self.JUMP.base_y
+                    height_diff = self.y - shadow_y
+                    ratio = height_diff / self.JUMP.rise_height
+                    current_scale_factor = (1.0 - ratio) * 1.0 + ratio * 0.5
+                    shadow_scale = 2.0 * current_scale_factor  # 2.0배가 적당 (코드엔 5.0이라 되어있는데 2~3배 추천)
 
-            # 💖 현재 상태가 JUMP 인지 확인
-            # (isinstance를 사용하여 현재 상태 객체가 Jump 클래스의 인스턴스인지 확인)
-            if isinstance(self.state_machine.cur_state, Jump):
-                # 1. 위치 고정: 점프 시작 전 바닥 위치(base_y) 사용
-                shadow_y = self.JUMP.base_y
+                shadow.draw(
+                    self.x - camera.world_l,
+                    shadow_y - camera.world_b - 100,  # 오프셋 조정 필요할 수 있음
+                    shadow.w * shadow_scale,
+                    shadow.h * shadow_scale
+                )
 
-                # 2. 크기 변화: 높이에 따라 1.0배 ~ 0.5배로 줄어듦
-                # 현재 높이 차이 계산
-                height_diff = self.y - shadow_y
-                # 최대 높이 대비 비율 (0.0 ~ 1.0)
-                ratio = height_diff / self.JUMP.rise_height
-                # 비율에 따라 스케일 선형 보간 (바닥일 때 1.0, 최고점일 때 0.5)
-                # (기본 배율 2.0에 곱해줌)
-                current_scale_factor = (1.0 - ratio) * 1.0 + ratio * 0.5
-                shadow_scale = 2.0 * current_scale_factor
+            # 본체 그리기
+            self.state_machine.draw(camera)
 
-            # 그림자 그리기 (계산된 위치와 스케일 적용)
-            # 오프셋(-40)은 바닥 기준
-            shadow.draw(
-                self.x - camera.world_l,
-                shadow_y - camera.world_b - 100,
-                shadow.w * shadow_scale,
-                shadow.h * shadow_scale
-            )
-        self.state_machine.draw(camera)
+        # 💖 HP바는 깜빡이지 않고 항상 그림
+        self.draw_hp_bar()
 
     def fire_bullet(self, angle):
         bullet = Bullet(self.x, self.y, angle)
@@ -410,13 +426,76 @@ class Boss:
         # 이미 죽었으면 무시
         if self.state_machine.cur_state == self.DEATH: return
 
+        # 💖 [추가] 플레이어와 부딪혔을 때 (보스는 데미지 안 입고 밀어내기만 함, 혹은 아무것도 안 함)
+        if group == 'player:boss':
+            return  # 보스 몸이 플레이어보다 강하므로 보스는 멀쩡함
+
         # 칼이나 검기에 맞았을 때
         if group == 'sword:enemy' or group == 'sword_bullet:enemy':
+            # 💖 [추가] 무적 시간이면 데미지 무시 (연타 방지)
+            if self.hit_timer > 0:
+                return
+
             # sword:enemy 일 경우 Swing 상태 확인
             if group == 'sword:enemy':
                 if other.state_machine.cur_state != other.SWING:
                     return
 
             self.hp -= 1
+            # 💖 [추가] 피격 시 1초간 무적/깜빡임 설정
+            self.hit_timer = 1.0
+
             if self.hp <= 0:
                 self.state_machine.handle_state_event(('DEATH', None))
+
+    def draw_hp_bar(self):
+        # 화면 중앙 하단 위치 계산
+        screen_center_x = 1920 // 2
+        screen_center_y = 1080 // 2
+
+        # 바의 중심 위치 (화면 중앙에서 아래로 450px)
+        bar_x = screen_center_x
+        bar_y = screen_center_y - 450
+
+        # 1. HP바 배경(틀) 그리기
+        if 'HP_BAR_BG' in self.images:
+            bg_img = self.images['HP_BAR_BG']
+            bg_img.draw(bar_x, bar_y)
+
+            # 💖 [핵심] 배경 이미지 크기 가져오기
+            bg_w = bg_img.w
+            bg_h = bg_img.h
+        else:
+            bg_w, bg_h = 800, 20  # 기본값
+
+        # 2. HP 게이지(내용물) 그리기
+        if 'HP_BAR_FILL' in self.images:
+            fill_img = self.images['HP_BAR_FILL']
+
+            # HP 비율 계산 (0.0 ~ 1.0)
+            hp_ratio = self.hp / self.max_hp
+            if hp_ratio < 0: hp_ratio = 0
+
+            # 💖 [핵심] "내용물이 그려질 최대 영역" 크기 정의
+            # 배경 이미지(껍데기) 크기에서 테두리 두께만큼 뺍니다.
+            # (좌우 10px, 상하 5px 씩 뺀다고 가정 -> 전체 너비 -20, 높이 -10)
+            # 이 수치만 조절하면 껍데기 안에 딱 맞게 들어갑니다.
+            inner_max_w = bg_w - 15
+            inner_max_h = bg_h - 15
+
+            # 현재 HP에 따른 실제 너비 계산
+            current_w = int(inner_max_w * hp_ratio)
+
+            # 💖 그리기 시작 위치 (좌측 하단) 계산
+            # 중심(bar_x)에서 '최대 너비의 절반'만큼 왼쪽으로 이동하면
+            # 배경의 테두리 안쪽 시작점과 정확히 일치합니다.
+            draw_x = bar_x - (inner_max_w // 2)
+            draw_y = bar_y - (inner_max_h // 2)
+
+            # 잘라서 그리기 (왼쪽 정렬 효과)
+            if current_w > 0:
+                fill_img.clip_draw_to_origin(
+                    0, 0, current_w, fill_img.h,  # 원본 자를 영역
+                    draw_x, draw_y,  # 화면 그릴 위치
+                    current_w, inner_max_h  # 화면 그릴 크기 (높이도 inner_max_h로 맞춤)
+                )

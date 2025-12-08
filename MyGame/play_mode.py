@@ -47,6 +47,7 @@ def init():
     game_world.add_collision_pair('player:enemy_bullet', player, None)
     game_world.add_collision_pair('sword:enemy_bullet', player.sword, None)
 
+
     # for i in range(10):
     #     # 💖 2-1. Enemy1 생성
     #     enemy = enemy1.Enemy1()
@@ -60,7 +61,7 @@ def init():
 
     boss_obj = boss.Boss()
     game_world.add_object(boss_obj, 1)  # 적 레이어
-
+    game_world.add_collision_pair('player:boss', player, boss_obj)
     # 2. 검기(Bullet) vs 보스 (새로 추가해야 함!)
     game_world.add_collision_pair('sword_bullet:enemy', None, boss_obj)
 
