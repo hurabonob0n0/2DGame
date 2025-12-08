@@ -227,6 +227,9 @@ class Enemy1:
             Enemy1.images['Death'] = load_image('./Assets/Enemy/E1_DEATH_23x23x4.png')
             Enemy1.sprite_data['Death'] = {'w': 23, 'h': 23, 'frames': 4}
 
+            if 'Shadow' not in Enemy1.images:
+                Enemy1.images['Shadow'] = load_image('./Assets/Shadow/EShadow.png')
+
     def __init__(self):
         self.x = random.randint(800, 1200)
         self.y = random.randint(400, 800)
@@ -325,6 +328,8 @@ class Enemy1:
         self.gun.update()
 
     def draw(self, camera):
+        if 'Shadow' in self.images:
+            self.images['Shadow'].draw(self.x - camera.world_l, self.y - camera.world_b  - 33,40,20)
         self.state_machine.draw(camera)
         self.gun.draw(camera)
 

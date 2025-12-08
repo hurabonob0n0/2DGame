@@ -4,7 +4,7 @@ from pico2d import load_image
 
 # 속도 상수 (총알보다 조금 느리게 설정)
 PIXEL_PER_METER = (10.0 / 0.3)
-SWORD_BULLET_SPEED_KMPH = 60.0  # 시속 40km
+SWORD_BULLET_SPEED_KMPH = 90.0  # 시속 40km
 SWORD_BULLET_SPEED_PPS = (SWORD_BULLET_SPEED_KMPH * 1000.0 / 60.0 / 60.0 * PIXEL_PER_METER)
 
 

@@ -193,6 +193,8 @@ class Player:
         self.anim_direction = 'F'
         self.anim_flip = ''
 
+        self.shadow_image = load_image('./Assets/Shadow/PShadow.png')
+
         # 💖 [추가] 구르기 쿨타임 타이머
         self.roll_cooldown = 0.0
 
@@ -361,6 +363,7 @@ class Player:
         self.sword.handle_event(event)
 
     def draw(self, camera):
+        self.shadow_image.draw(self.x - camera.world_l, self.y - camera.world_b - 33,40,20)
         self.state_machine.draw(camera)
         self.sword.draw(camera)
 

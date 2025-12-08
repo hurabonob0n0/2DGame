@@ -300,6 +300,9 @@ class Boss:
             Boss.images['Death'] = load_image('./Assets/Enemy/BOSS_DEATH_46X60X3.png')
             Boss.sprite_data['Death'] = {'w': 46, 'h': 60, 'frames': 3}
 
+            if 'Shadow' not in Boss.images:
+                Boss.images['Shadow'] = load_image('./Assets/Shadow/EShadow.png')
+
     def __init__(self):
         self.x, self.y = 1000, 600
         self.hp = 20
@@ -358,6 +361,37 @@ class Boss:
         )
 
     def draw(self, camera):
+        if 'Shadow' in self.images:
+            shadow = self.images['Shadow']
+
+            # 기본 설정 (땅에 있을 때)
+            shadow_y = self.y
+            shadow_scale = 5.0  # 보스 덩치에 맞춰 기본 2배
+
+            # 💖 현재 상태가 JUMP 인지 확인
+            # (isinstance를 사용하여 현재 상태 객체가 Jump 클래스의 인스턴스인지 확인)
+            if isinstance(self.state_machine.cur_state, Jump):
+                # 1. 위치 고정: 점프 시작 전 바닥 위치(base_y) 사용
+                shadow_y = self.JUMP.base_y
+
+                # 2. 크기 변화: 높이에 따라 1.0배 ~ 0.5배로 줄어듦
+                # 현재 높이 차이 계산
+                height_diff = self.y - shadow_y
+                # 최대 높이 대비 비율 (0.0 ~ 1.0)
+                ratio = height_diff / self.JUMP.rise_height
+                # 비율에 따라 스케일 선형 보간 (바닥일 때 1.0, 최고점일 때 0.5)
+                # (기본 배율 2.0에 곱해줌)
+                current_scale_factor = (1.0 - ratio) * 1.0 + ratio * 0.5
+                shadow_scale = 2.0 * current_scale_factor
+
+            # 그림자 그리기 (계산된 위치와 스케일 적용)
+            # 오프셋(-40)은 바닥 기준
+            shadow.draw(
+                self.x - camera.world_l,
+                shadow_y - camera.world_b - 100,
+                shadow.w * shadow_scale,
+                shadow.h * shadow_scale
+            )
         self.state_machine.draw(camera)
 
     def fire_bullet(self, angle):
