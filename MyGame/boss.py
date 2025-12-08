@@ -316,8 +316,8 @@ class Boss:
 
     def __init__(self):
         self.x, self.y = 1000, 600
-        self.hp = 20
-        self.max_hp = 20  # 💖 최대 HP 저장
+        self.hp = 10
+        self.max_hp = 10  # 💖 최대 HP 저장
         self.draw_scale = 3.0
         self.frame = 0.0
         self.anim_flip = ''

@@ -1,6 +1,6 @@
 import math
 import random
-from pico2d import load_image
+from pico2d import load_image,load_wav
 import game_framework
 import game_world
 from state_machine import StateMachine
@@ -73,6 +73,8 @@ class Shoot:
         game_world.add_collision_pair('player:enemy_bullet', None, bullet)
         game_world.add_collision_pair('sword:enemy_bullet', None, bullet)
 
+        self.gun.gunsound.play()
+
     def draw(self, camera):
         cur_frame = int(self.frame) % 4
         self.gun.draw_gun(camera, 'Shoot', cur_frame)
@@ -120,6 +122,8 @@ class Gun:
         # 💖 [수정] 공전 반지름 설정 (적 몸체에서 떨어진 거리)
         self.r = 20
 
+        self.gunsound = load_wav('./Assets/Sounds/gun.wav')
+        self.gunsound.set_volume(100)
         # 💖 [수정] 크기 1.5배 확대 (기존 2.0 -> 3.0)
         self.draw_scale = 3.0
 

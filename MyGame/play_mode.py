@@ -12,6 +12,7 @@ import boss
 from map import Map
 from bullet import Bullet  # 총알 생성용
 
+from pico2d import hide_cursor, show_cursor
 # ---------------------------------------------------------
 # Global Variables
 # ---------------------------------------------------------
@@ -49,6 +50,13 @@ def init():
     global stage, stage_timer, stage_1_cleared_condition
     global accumulated_move_time
     global bgm, boss_bgm  # 💖
+    global crosshair_image  # 💖
+
+    # 💖 [추가] 시스템 마우스 커서 숨기기
+    hide_cursor()
+
+    # 💖 [추가] 조준선 이미지 로드
+    crosshair_image = load_image('./Assets/UI/Mouse.png')
 
     font = load_font('malgun.ttf', 40)
 
@@ -208,7 +216,7 @@ def update():
         if get_enemy_count() == 0:
             stage = 4
             stage_timer = 0.0
-            for i in range(10):
+            for i in range(5):
                 bx, by = get_random_offscreen_pos()
                 mob = enemy1.Enemy1()
                 mob.x, mob.y = bx, by
@@ -276,7 +284,7 @@ def draw():
 
     elif stage == 4:
         font.draw(cx - 200, cy, "제 4장 : 몬스터의 다구리", (255, 255, 0))
-        font.draw(cx - 200, cy - 50, "몬스터 10마리를 죽이시오", (255, 255, 255))
+        font.draw(cx - 200, cy - 50, "몬스터 5마리를 죽이시오", (255, 255, 255))
 
     elif stage == 5:
         font.draw(cx - 150, cy, "제 5장 : 보스 등장", (255, 255, 0))
@@ -284,6 +292,9 @@ def draw():
 
     elif stage == 6:
         font.draw(1920 // 2 - 100, 1080 // 2, "CLEAR!!", (255, 50, 50))
+
+    if crosshair_image and player:
+        crosshair_image.draw(player.mouse_x, player.mouse_y,64,64)
 
     update_canvas()
 
